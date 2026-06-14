@@ -9,36 +9,43 @@ The codebase is based on the original LEFuse repository:
 
 ---
 
-## Overview
+## 1. Clone This Repository
 
-The main script is:
+First, clone this repository:
 
 ```bash
-inference.py
+git clone https://github.com/wnsgmllee/ETRI_Night_Fusion.git
+cd ETRI_Night_Fusion
 ```
-
-Running `inference.py` takes paired visible RGB images and thermal images as input, performs low-light noise-aware preprocessing on the RGB image, and generates the final fused image using a pretrained LEFuse model.
-
-The overall pipeline is designed for nighttime RGB-thermal fusion. In particular, the visible RGB image may contain strong noise in dark regions. To address this, the RGB image is first processed with a dark-region-aware denoising module before being fused with the thermal image.
 
 ---
 
-## Requirements
+## 2. Environment Setup
 
-The environment follows the original LEFuse implementation.
+This code does not require a strict Python or PyTorch version.  
+You can use a recent Python version and a recent PyTorch version that matches your CUDA environment.
 
-Please set up the environment according to the original LEFuse repository:
+For example, you may create a conda environment as follows:
 
-```text
-https://github.com/cmhang/LEFuse
+```bash
+conda create -n etri_fusion python=3.10 -y
+conda activate etri_fusion
 ```
 
-No separate requirements are provided in this repository.  
-Use the same dependency setup as LEFuse.
+Install PyTorch according to your own CUDA environment.  
+For example, install a recent PyTorch version using either `conda` or `pip`.
+
+After installing PyTorch, install the remaining dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+The provided `requirements.txt` contains the additional packages required by the inference code, such as NumPy, OpenCV, and scikit-image.
 
 ---
 
-## Configuration
+## 3. Configuration
 
 All inference paths are configured in `options.py`.
 
@@ -49,15 +56,10 @@ TrainOptions_E
 TrainOptions_K
 ```
 
-### ETRI Dataset
+- `TrainOptions_E`: configuration for the ETRI dataset
+- `TrainOptions_K`: configuration for the KIRO dataset
 
-`TrainOptions_E` is used for the ETRI dataset.
-
-```python
-class TrainOptions_E():
-```
-
-The important arguments are:
+In each option class, set the following paths according to your own dataset location:
 
 ```python
 --ckpt_path
@@ -66,37 +68,30 @@ The important arguments are:
 --out_path
 ```
 
-Default setting:
+### Path Description
+
+| Argument | Description |
+|---|---|
+| `ckpt_path` | Path to the pretrained LEFuse checkpoint, for example `L2024.pth` |
+| `vi_path` | Absolute path to the visible RGB image folder |
+| `ir_path` | Absolute path to the thermal image folder |
+| `out_path` | Absolute path to the output folder where fused images will be saved |
+
+For example, in `options.py`, modify:
 
 ```python
-ckpt_path = "L2024.pth"
-vi_path = "/ceph_data/jhlee39/workspace/repos/ETRI/data/ETRI_Night/rgb_1"
-ir_path = "/ceph_data/jhlee39/workspace/repos/ETRI/data/ETRI_Night/Thermal_1"
-out_path = "/ceph_data/jhlee39/workspace/repos/ETRI/data/ETRI_Night/fused_denoise_inference"
+self.parser.add_argument('--vi_path', type=str, default="/absolute/path/to/rgb/images")
+self.parser.add_argument('--ir_path', type=str, default="/absolute/path/to/thermal/images")
+self.parser.add_argument('--out_path', type=str, default="/absolute/path/to/save/fused/results")
 ```
 
-### KIRO Dataset
-
-`TrainOptions_K` is used for the KIRO dataset.
-
-```python
-class TrainOptions_K():
-```
-
-Default setting:
-
-```python
-ckpt_path = "L2024.pth"
-vi_path = "/ceph_data/jhlee39/workspace/repos/ETRI/data/kiro_night/RGB_enhanced"
-ir_path = "/ceph_data/jhlee39/workspace/repos/ETRI/data/kiro_night/Thermal"
-out_path = "/ceph_data/jhlee39/workspace/repos/ETRI/data/kiro_night/fused"
-```
+You should set `vi_path`, `ir_path`, and `out_path` to the absolute paths of your own data.
 
 ---
 
-## Input Folder Structure
+## 4. Input Folder Structure
 
-The visible RGB image folder and thermal image folder should contain paired images.
+The visible RGB image folder and thermal image folder must contain paired images.
 
 For each visible RGB image in `vi_path`, the corresponding thermal image should exist in `ir_path` with the same base filename.
 
@@ -121,7 +116,7 @@ For example, if the visible image is:
 1.png
 ```
 
-then the thermal image should have the same base name:
+then the corresponding thermal image should also have the same base name:
 
 ```text
 1.png
@@ -137,7 +132,7 @@ If a corresponding thermal image is not found, that image will be skipped and co
 
 ---
 
-## Inference
+## 5. Inference
 
 ### Run inference on the ETRI dataset
 
@@ -157,7 +152,7 @@ This uses `TrainOptions_K` from `options.py`.
 
 ---
 
-## Output
+## 6. Output
 
 The fused images are saved to the `out_path` specified in `options.py`.
 
@@ -187,7 +182,7 @@ This file contains the final quantitative summary of the inference results.
 
 ---
 
-## Text Output: `final_metrics.txt`
+## 7. Text Output: `final_metrics.txt`
 
 After inference, the following information is saved in:
 
@@ -195,7 +190,7 @@ After inference, the following information is saved in:
 final_metrics.txt
 ```
 
-### 1. Final fusion quality metrics
+### 7.1 Final Fusion Quality Metrics
 
 The file first reports the metric directions:
 
@@ -206,7 +201,9 @@ THERMAL_TRANSFER_MI: higher is better
 DARK_FLAT_NOISE: lower is better
 ```
 
-The following average metrics are reported for both the baseline and the proposed denoising-based inference result.
+The following average metrics are reported for both the baseline result and the proposed denoising-based result.
+
+---
 
 ### `Average Baseline INFO_GAIN_EN`
 
@@ -216,6 +213,8 @@ The baseline result is obtained by directly applying LEFuse to the original visi
 
 Higher is better.
 
+---
+
 ### `Average Trial INFO_GAIN_EN`
 
 This is the average information gain based on entropy for the proposed inference pipeline.
@@ -224,11 +223,15 @@ The trial result uses the denoised visible Y channel before LEFuse fusion.
 
 Higher is better.
 
+---
+
 ### `Average Baseline VIS_STRUCTURE_SSIM`
 
 This measures the structural similarity between the original visible Y channel and the baseline fused Y channel.
 
 Higher values indicate that the fused image better preserves visible-image structure.
+
+---
 
 ### `Average Trial VIS_STRUCTURE_SSIM`
 
@@ -236,11 +239,15 @@ This measures the structural similarity between the original visible Y channel a
 
 Higher is better.
 
+---
+
 ### `Average Baseline THERMAL_TRANSFER_MI`
 
 This measures the mutual information between the thermal Y channel and the baseline fused Y channel.
 
 Higher values indicate that more thermal information is transferred to the fused result.
+
+---
 
 ### `Average Trial THERMAL_TRANSFER_MI`
 
@@ -248,11 +255,15 @@ This measures the mutual information between the thermal Y channel and the propo
 
 Higher is better.
 
+---
+
 ### `Average Baseline DARK_FLAT_NOISE`
 
 This measures the noise level in dark and flat regions of the baseline fused image.
 
 Lower is better.
+
+---
 
 ### `Average Trial DARK_FLAT_NOISE`
 
@@ -262,7 +273,7 @@ Lower values indicate better suppression of low-light noise in dark smooth regio
 
 ---
 
-## Latency Output
+## 8. Latency Output
 
 The text file also reports the average inference latency.
 
@@ -295,7 +306,7 @@ This helps reduce the effect of CUDA/cuDNN/PyTorch initialization overhead on th
 
 ---
 
-## Count Output
+## 9. Count Output
 
 The text file also reports the number of processed images:
 
@@ -324,17 +335,21 @@ The number of images that failed during inference due to an exception.
 
 ---
 
-## Inference Pipeline Summary
+## 10. Inference Pipeline Summary
 
 The final fusion process consists of the following steps.
 
-### 1. Read RGB and thermal images
+---
+
+### 10.1 Read RGB and Thermal Images
 
 The visible RGB image and thermal image are loaded from `vi_path` and `ir_path`.
 
 Both images are converted to tensors and normalized to the range `[0, 1]`.
 
-### 2. Convert RGB images to YCrCb
+---
+
+### 10.2 Convert RGB Images to YCrCb
 
 The visible RGB image is converted to YCrCb:
 
@@ -350,7 +365,9 @@ Thermal image → thermal Y
 
 The visible Y channel contains luminance information, while Cr and Cb contain chrominance information.
 
-### 3. Dark-region-aware Y-channel denoising
+---
+
+### 10.3 Dark-Region-Aware Y-Channel Denoising
 
 The visible Y channel is denoised before fusion.
 
@@ -366,7 +383,9 @@ brighter pixels → weaker denoising
 
 The denoising is performed using Non-Local Means filtering.
 
-### 4. Edge-aware protection
+---
+
+### 10.4 Edge-Aware Protection
 
 To avoid over-smoothing important structures, the denoising mask is further controlled by an edge map.
 
@@ -382,7 +401,9 @@ edge/detail regions → denoised weakly
 
 This is important because nighttime RGB images often contain severe noise in dark smooth areas, while still requiring edge and texture preservation for visually meaningful fusion.
 
-### 5. Detail restoration
+---
+
+### 10.5 Detail Restoration
 
 After denoising, a weak detail restoration step is applied.
 
@@ -390,7 +411,9 @@ The code adds back part of the difference between the original visible Y channel
 
 This helps prevent the denoised visible image from becoming overly smooth.
 
-### 6. Dark-region chroma smoothing
+---
+
+### 10.6 Dark-Region Chroma Smoothing
 
 The Cr and Cb channels from the visible RGB image are also processed.
 
@@ -399,7 +422,9 @@ To reduce this, the code smooths the chroma channels in dark regions while prese
 
 This helps produce a cleaner final RGB fused image.
 
-### 7. LEFuse fusion
+---
+
+### 10.7 LEFuse Fusion
 
 The processed visible Y channel and the thermal Y channel are passed to the pretrained LEFuse model:
 
@@ -409,7 +434,9 @@ LEFuse(denoised visible Y, thermal Y) → fused Y
 
 The output is a fused luminance channel that combines information from both the visible RGB image and the thermal image.
 
-### 8. Robust normalization
+---
+
+### 10.8 Robust Normalization
 
 The fused Y channel is normalized using robust percentile-based normalization.
 
@@ -421,7 +448,9 @@ robust_0p5_99p5
 
 This uses the 0.5% and 99.5% percentiles to reduce the effect of extreme outlier values.
 
-### 9. RGB restoration
+---
+
+### 10.9 RGB Restoration
 
 Finally, the fused Y channel is combined with the processed visible chroma channels:
 
@@ -433,7 +462,7 @@ The final RGB image is clipped to the valid range and saved as a PNG image.
 
 ---
 
-## Key Design Motivation
+## 11. Key Design Motivation
 
 The main motivation of this inference pipeline is to improve RGB-thermal fusion under low-light conditions.
 
@@ -453,7 +482,7 @@ This allows the final fused image to preserve useful visible structures while re
 
 ---
 
-## Reference
+## 12. Reference
 
 This project is based on the LEFuse codebase:
 
