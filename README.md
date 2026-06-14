@@ -182,17 +182,11 @@ This file contains the final quantitative summary of the inference results.
 
 ---
 
-## 7. Text Output: `final_metrics.txt`
+## 7. Metrics in `final_metrics.txt`
 
-After inference, the following information is saved in:
+After inference, the script saves a summary of fusion quality metrics in `final_metrics.txt`.
 
-```text
-final_metrics.txt
-```
-
-### 7.1 Final Fusion Quality Metrics
-
-The file first reports the metric directions:
+The main metrics are:
 
 ```text
 INFO_GAIN_EN: higher is better
@@ -201,147 +195,35 @@ THERMAL_TRANSFER_MI: higher is better
 DARK_FLAT_NOISE: lower is better
 ```
 
-The following average metrics are reported for both the baseline result and the proposed denoising-based result.
+### `INFO_GAIN_EN`
+
+Entropy-based information gain between the original visible image and the fused image.  
+A higher value indicates that the fused image contains more information.
+
+### `VIS_STRUCTURE_SSIM`
+
+Structural similarity between the original visible luminance channel and the fused luminance channel.  
+A higher value indicates that the fused image better preserves visible structural information.
+
+### `THERMAL_TRANSFER_MI`
+
+Mutual information between the thermal image and the fused image.  
+A higher value indicates that more thermal information is reflected in the fused result.
+
+### `DARK_FLAT_NOISE`
+
+Noise level measured in dark and flat image regions.  
+A lower value indicates better suppression of low-light noise in smooth dark areas.
 
 ---
 
-### `Average Baseline INFO_GAIN_EN`
-
-This is the average information gain based on entropy for the baseline LEFuse output.
-
-The baseline result is obtained by directly applying LEFuse to the original visible Y channel and thermal Y channel without the proposed dark-region denoising step.
-
-Higher is better.
-
----
-
-### `Average Trial INFO_GAIN_EN`
-
-This is the average information gain based on entropy for the proposed inference pipeline.
-
-The trial result uses the denoised visible Y channel before LEFuse fusion.
-
-Higher is better.
-
----
-
-### `Average Baseline VIS_STRUCTURE_SSIM`
-
-This measures the structural similarity between the original visible Y channel and the baseline fused Y channel.
-
-Higher values indicate that the fused image better preserves visible-image structure.
-
----
-
-### `Average Trial VIS_STRUCTURE_SSIM`
-
-This measures the structural similarity between the original visible Y channel and the proposed fused Y channel.
-
-Higher is better.
-
----
-
-### `Average Baseline THERMAL_TRANSFER_MI`
-
-This measures the mutual information between the thermal Y channel and the baseline fused Y channel.
-
-Higher values indicate that more thermal information is transferred to the fused result.
-
----
-
-### `Average Trial THERMAL_TRANSFER_MI`
-
-This measures the mutual information between the thermal Y channel and the proposed fused Y channel.
-
-Higher is better.
-
----
-
-### `Average Baseline DARK_FLAT_NOISE`
-
-This measures the noise level in dark and flat regions of the baseline fused image.
-
-Lower is better.
-
----
-
-### `Average Trial DARK_FLAT_NOISE`
-
-This measures the noise level in dark and flat regions of the proposed fused image.
-
-Lower values indicate better suppression of low-light noise in dark smooth regions.
-
----
-
-## 8. Latency Output
-
-The text file also reports the average inference latency.
-
-```text
-Average image latency: {sec/image} sec/image
-Average image latency: {ms/image} ms/image
-```
-
-The measured latency includes the main inference pipeline:
-
-```text
-RGB2YCrCb
-→ denoising/chroma processing
-→ LEFuse forward
-→ normalization
-→ RGB restoration
-→ final RGB array generation
-```
-
-The following parts are excluded from latency measurement:
-
-```text
-disk image loading
-disk image saving
-baseline metric computation
-```
-
-The script performs one warm-up pass before measuring latency.  
-This helps reduce the effect of CUDA/cuDNN/PyTorch initialization overhead on the measured inference time.
-
----
-
-## 9. Count Output
-
-The text file also reports the number of processed images:
-
-```text
-Total visible images
-Processed images
-Skipped images
-Failed images
-```
-
-### `Total visible images`
-
-The number of valid visible RGB images found in `vi_path`.
-
-### `Processed images`
-
-The number of image pairs that were successfully fused.
-
-### `Skipped images`
-
-The number of visible images skipped because the corresponding thermal image was not found.
-
-### `Failed images`
-
-The number of images that failed during inference due to an exception.
-
----
-
-## 10. Inference Pipeline Summary
+## 8. Inference Pipeline Summary
 
 The final fusion process consists of the following steps.
 
 ---
 
-### 10.1 Read RGB and Thermal Images
+### 8.1 Read RGB and Thermal Images
 
 The visible RGB image and thermal image are loaded from `vi_path` and `ir_path`.
 
@@ -349,7 +231,7 @@ Both images are converted to tensors and normalized to the range `[0, 1]`.
 
 ---
 
-### 10.2 Convert RGB Images to YCrCb
+### 8.2 Convert RGB Images to YCrCb
 
 The visible RGB image is converted to YCrCb:
 
@@ -367,7 +249,7 @@ The visible Y channel contains luminance information, while Cr and Cb contain ch
 
 ---
 
-### 10.3 Dark-Region-Aware Y-Channel Denoising
+### 8.3 Dark-Region-Aware Y-Channel Denoising
 
 The visible Y channel is denoised before fusion.
 
@@ -385,7 +267,7 @@ The denoising is performed using Non-Local Means filtering.
 
 ---
 
-### 10.4 Edge-Aware Protection
+### 8.4 Edge-Aware Protection
 
 To avoid over-smoothing important structures, the denoising mask is further controlled by an edge map.
 
@@ -403,7 +285,7 @@ This is important because nighttime RGB images often contain severe noise in dar
 
 ---
 
-### 10.5 Detail Restoration
+### 8.5 Detail Restoration
 
 After denoising, a weak detail restoration step is applied.
 
@@ -413,7 +295,7 @@ This helps prevent the denoised visible image from becoming overly smooth.
 
 ---
 
-### 10.6 Dark-Region Chroma Smoothing
+### 8.6 Dark-Region Chroma Smoothing
 
 The Cr and Cb channels from the visible RGB image are also processed.
 
@@ -424,7 +306,7 @@ This helps produce a cleaner final RGB fused image.
 
 ---
 
-### 10.7 LEFuse Fusion
+### 8.7 LEFuse Fusion
 
 The processed visible Y channel and the thermal Y channel are passed to the pretrained LEFuse model:
 
@@ -436,7 +318,7 @@ The output is a fused luminance channel that combines information from both the 
 
 ---
 
-### 10.8 Robust Normalization
+### 8.8 Robust Normalization
 
 The fused Y channel is normalized using robust percentile-based normalization.
 
@@ -450,7 +332,7 @@ This uses the 0.5% and 99.5% percentiles to reduce the effect of extreme outlier
 
 ---
 
-### 10.9 RGB Restoration
+### 8.9 RGB Restoration
 
 Finally, the fused Y channel is combined with the processed visible chroma channels:
 
@@ -462,7 +344,7 @@ The final RGB image is clipped to the valid range and saved as a PNG image.
 
 ---
 
-## 11. Key Design Motivation
+## 9. Key Design Motivation
 
 The main motivation of this inference pipeline is to improve RGB-thermal fusion under low-light conditions.
 
@@ -482,7 +364,7 @@ This allows the final fused image to preserve useful visible structures while re
 
 ---
 
-## 12. Reference
+## 10. Reference
 
 This project is based on the LEFuse codebase:
 
